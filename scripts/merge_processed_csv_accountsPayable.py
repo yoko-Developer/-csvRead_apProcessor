@@ -187,11 +187,10 @@ def merge_processed_csv_files():
 
 
         # 結合されたDataFrameを新しいフォルダに保存
-        merged_output_filename = f"{group_root_name}_merged.csv" # お客様のご要望通り_merged.csv形式
+        merged_output_filename = f"{group_root_name}_merged.csv" # _merged.csv形式
         merged_output_filepath = os.path.join(MERGED_OUTPUT_BASE_DIR, merged_output_filename)
         
-        # 古いファイルを削除するロジック（もしあれば）
-        # 例: B000304_processed_merged.csv のような過去の形式
+        # _processed_merged.csv があれば削除
         old_filename_pattern = f"{group_root_name}_processed_merged.csv" 
         old_filepath = os.path.join(MERGED_OUTPUT_BASE_DIR, old_filename_pattern)
         if os.path.exists(old_filepath):
