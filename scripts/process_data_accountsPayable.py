@@ -96,11 +96,9 @@ ACCOUNTS_PAYABLE_MAPPING_DICT = {
 # 買掛金アプリでは使用しないため、空の辞書として定義
 FINANCIAL_STATEMENT_MAPPING_DICT = {} 
 LOAN_DETAILS_MAPPING_DICT = {} 
-NOTES_PAYABLE_MAPPING_DICT = {} # 支払手形と買掛金は別アプリのため、ここでは使用しない
+NOTES_PAYABLE_MAPPING_DICT = {}
 
-# ★★★ NO_HEADER_MAPPING_DICT をタブ区切りデータの「デフォルト」として再定義！（買掛金向けに調整） ★★★
-# 買掛金ファイルのタブ区切りデータ具体的な列順が不明なため、一般的なOCR出力の列順を参考に仮定義。
-# ！！お客様の実際のB*091.csvデータに合わせて、以下のインデックスを正確に調整する必要があります！
+# B*091.csvデータに合わせて、以下のインデックスを正確に調整する
 NO_HEADER_MAPPING_DICT = {
     # 基本情報 (OCR出力で共通であることが多いパターン)
     'ocr_result_id': 0, 'page_no': 1, 'id': 2, 'jgroupid_string': 3, 'cif_number': 4, 'settlement_at': 5,
@@ -224,7 +222,7 @@ def detect_amount_column_index(df):
 
 def process_universal_csv(input_filepath, processed_output_base_dir, input_base_dir, 
                         master_df, ocr_id_map_for_groups, current_file_group_root_name, 
-                        final_postgre_columns_list, accounts_payable_map, no_header_map): # 引数名を修正 financial_map, loan_mapを削除
+                        final_postgre_columns_list, accounts_payable_map, no_header_map): 
     """
     全てのAIRead出力CSVファイルを読み込み、統一されたPostgreSQL向けカラム形式に変換して出力する関数。
     CSVの種類（ヘッダー内容）を判別し、それぞれに応じたマッピングを適用する。
@@ -517,10 +515,9 @@ if __name__ == "__main__":
             df_payee_master = pd.read_csv(payee_master_filepath, encoding='utf-8')
             if 'payee_name' in df_payee_master.columns and 'payee_com_code' in df_payee_master.columns:
                 payee_name_to_com_code_map = pd.Series(df_payee_master.payee_com_code.values, index=df_payee_master.payee_name).to_dict()
-                # next_payee_com_code_val を既存の最大値+100に設定
                 if payee_name_to_com_code_map:
                     max_existing_code_str = max(payee_name_to_com_code_map.values())
-                    next_payee_com_code_val = int(max_existing_code_str[1:]) + 100 # '8'を除いてint変換
+                    next_payee_com_code_val = int(max_existing_code_str[1:]) + 1 
                 print(f"  ℹ️ {payee_master_filepath} を読み込みました (payee_com_code生成に利用されます)。")
             else:
                 print(f"  ⚠️ 警告: {payee_master_filepath} は有効な 'payee_name' および 'payee_com_code' カラムを含んでいません。新規採番から開始します。")
@@ -562,7 +559,7 @@ if __name__ == "__main__":
         for filename in files:
             if filename.lower().endswith('.csv') and not filename.lower().endswith('_processed.csv'):
                 # ファイル名から「ファイルグループのルート名」を抽出 (BXXXXXX)
-                # INPUT_CSV_FILES_DIR には B91.csv のみが存在すると仮定
+                # INPUT_CSV_FILES_DIR には B*091.csv のみが存在すると仮定
                 match = re.match(r'^(B\d{6})_.*\.jpg_091\.csv$', filename, re.IGNORECASE) 
                 
                 if match: # パターンに合致した場合のみ処理
@@ -579,7 +576,7 @@ if __name__ == "__main__":
     print(f"生成された ocr_id_mapping (最初の5つ): {list(ocr_id_mapping.items())[:5]}...")
 
     # 生成した ocr_id_mapping をファイルに保存
-    ocr_id_map_filepath = os.path.join(MASTER_DATA_DIR, 'ocr_id_mapping_notesPayable.json') 
+    ocr_id_map_filepath = os.path.join(MASTER_DATA_DIR, 'ocr_id_mapping_accountsPayable.json') # ★★★ ファイル名を修正！ ★★★
     try:
         with open(ocr_id_map_filepath, 'w', encoding='utf-8') as f:
             json.dump(ocr_id_mapping, f, ensure_ascii=False, indent=4)
@@ -597,7 +594,7 @@ if __name__ == "__main__":
                 current_file_group_root_name = None
                 # ファイル名から「ファイルグループのルート名」を抽出 (BXXXXXX)
                 # INPUT_CSV_FILES_DIR には B*091.csv のみが存在すると仮定
-                match = re.match(r'^(B\d{6})_.*\.jpg_091\.csv$', filename, re.IGNORECASE)
+                match = re.match(r'^(B\d{6})_.*\.jpg_091\.csv$', filename, re.IGNORECASE) 
                 if match:
                     current_file_group_root_name = match.group(1) 
                 
@@ -606,16 +603,16 @@ if __name__ == "__main__":
                     continue 
 
                 process_universal_csv(input_filepath, PROCESSED_OUTPUT_BASE_DIR, INPUT_CSV_FILES_DIR, 
-                                    payee_master_df, ocr_id_mapping, current_file_group_root_name, # master_df -> payee_master_df
-                                    FINAL_POSTGRE_COLUMNS, ACCOUNTS_PAYABLE_MAPPING_DICT, NO_HEADER_MAPPING_DICT) # notes_payable_map, no_header_map
+                                    payee_master_df, ocr_id_mapping, current_file_group_root_name, 
+                                    FINAL_POSTGRE_COLUMNS, ACCOUNTS_PAYABLE_MAPPING_DICT, NO_HEADER_MAPPING_DICT) 
                                     
-    # payee_name_to_com_code_map を master.csv に保存 (プログラム実行終了時)
+    # payee_name_to_com_code_map を payee_com_code_master.csv に保存 (プログラム実行終了時)
     try:
-        df_payee_master_save = pd.DataFrame(list(payee_name_to_com_code_map.items()), columns=['payee_name', 'payee_com_code'])
+        df_payee_master_save = pd.DataFrame(list(partner_name_to_com_code_map.items()), columns=['partner_name', 'partner_com_code'])
         df_payee_master_save.to_csv(payee_master_filepath, index=False, encoding='utf-8')
-        print(f"  ✅ payee_com_code_master.csv を {payee_master_filepath} に保存しました。")
+        print(f"  ✅ partner_com_code_master.csv を {payee_master_filepath} に保存しました。")
     except Exception as e:
-        print(f"❌ エラー: payee_com_code_master.csv の保存に失敗しました。エラー: {e}")
+        print(f"❌ エラー: partner_com_code_master.csv の保存に失敗しました。エラー: {e}")
 
 
     print(f"\n🎉 全てのファイルの加工処理が完了しました！ ({datetime.now()}) 🎉")
